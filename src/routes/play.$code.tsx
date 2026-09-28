@@ -1,3 +1,5 @@
+// ============= Full file contents =============
+
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
@@ -49,9 +51,10 @@ function PlayerScreen() {
 
 function Shell({ children, full }: { children: React.ReactNode; full?: boolean }) {
   if (full) {
-    // Yarışma alanı: kart yok, tüm ekranı kaplar.
+    // Yarışma alanı: kart yok, tam ekrana sabit — sayfa kaydırılmaz,
+    // her şey tek ekrana sığar.
     return (
-      <main className="flex min-h-[100dvh] w-full flex-col bg-background px-4 pb-8 pt-5 sm:px-8">
+      <main className="flex h-[100dvh] w-full flex-col overflow-hidden bg-background px-4 pb-3 pt-3 sm:px-8">
         {children}
       </main>
     );
@@ -218,10 +221,12 @@ function GameView({ code, playerId }: { code: string; playerId: string }) {
     );
   }
 
+  const canAnswer = data.status === "PLAYING" && !data.resolved && meResult?.isCorrect !== true;
+
   return (
     <Shell full>
       {countdown}
-      <div className="mx-auto flex w-full max-w-3xl items-center justify-between gap-3">
+      <div className="mx-auto flex w-full max-w-3xl shrink-0 items-center justify-between gap-3">
         <div className={`rounded-full ${teamColor} px-4 py-1.5 text-sm font-bold text-panel`}>
           {teamLabel}
         </div>
@@ -231,118 +236,122 @@ function GameView({ code, playerId }: { code: string; playerId: string }) {
       </div>
 
       {q && (
-        <div className="mx-auto w-full max-w-3xl">
-        <>
-          <p className="mt-5 text-xs font-semibold tracking-[0.2em] text-muted-foreground">
-            SORU {q.index} / {q.total} • {q.category.toUpperCase()}
-          </p>
-          <h2 className="mt-2 text-xl font-extrabold leading-snug text-foreground">{q.question}</h2>
+        <div className="mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col">
+          {/* Soru + görsel: kalan alanı doldurur, gerektiğinde küçülür */}
+          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto pb-1">
+            <p className="mt-3 shrink-0 text-xs font-semibold tracking-[0.2em] text-muted-foreground">
+              SORU {q.index} / {q.total} • {q.category.toUpperCase()}
+            </p>
+            <h2 className="mt-1 shrink-0 text-xl font-extrabold leading-snug text-foreground">
+              {q.question}
+            </h2>
 
-           {q.imageUrl && (
-             <div className="mt-4 flex h-[min(32dvh,18rem)] w-full items-center justify-center overflow-hidden rounded-2xl border-2 border-border bg-panel shadow-[var(--shadow-panel)]">
-               <img
-                 src={q.imageUrl}
-                 alt="Soru görseli"
-                 className="h-full w-full object-contain"
-               />
-             </div>
-           )}
+            {q.imageUrl && (
+              <div className="mt-3 flex min-h-[7rem] w-full flex-1 items-center justify-center overflow-hidden rounded-2xl border-2 border-border bg-panel shadow-[var(--shadow-panel)]">
+                <img
+                  src={q.imageUrl}
+                  alt="Soru görseli"
+                  className="h-full w-full object-contain"
+                />
+              </div>
+            )}
+          </div>
 
-          {q.type === "fill" ? (
-            <form
-              className="mt-5 grid gap-3"
-              onSubmit={async (event) => {
-                event.preventDefault();
-                if (!typed.trim()) return;
-                setSending("fill");
-                setError(null);
-                try {
-                  const res = await answer({ data: { code, playerId, answer: typed } });
-                  setInstant({ answer: typed, isCorrect: res.isCorrect });
-                  void refetch();
-                } catch (e) {
-                  setError(e instanceof Error ? e.message : "Gönderilemedi");
-                } finally {
-                  setSending(null);
-                }
-              }}
-            >
-              <input
-                value={typed}
-                onChange={(event) => setTyped(event.target.value)}
-                maxLength={200}
-                placeholder="Cevabını yaz..."
-                aria-label="Cevabın"
-                disabled={data.resolved || meResult?.isCorrect === true || data.status !== "PLAYING"}
-                className="rounded-2xl border-2 border-border bg-background px-4 py-4 text-base font-semibold text-foreground outline-none focus:border-foreground"
-              />
-              <button
-                type="submit"
-                disabled={data.resolved || meResult?.isCorrect === true || data.status !== "PLAYING" || !!sending || !typed.trim()}
-                className="rounded-full bg-foreground py-4 font-bold text-background disabled:opacity-60"
-              >
-                {sending ? "GÖNDERİLİYOR..." : "GÖNDER"}
-              </button>
-            </form>
-          ) : (
-          <div className="mt-5 grid gap-3">
-            {LETTERS.filter((letter) => q.options[letter]?.trim()).map((letter) => {
-              const chosen = meResult?.answer === letter || optimistic === letter;
-              return (
-                <button
-                  key={letter}
-                  disabled={
-                    data.resolved || meResult?.isCorrect === true || data.status !== "PLAYING" || !!sending
+          {/* Cevap alanı: ekranda her zaman görünür, kaydırma gerekmez */}
+          <div className="shrink-0">
+            {q.type === "fill" ? (
+              <form
+                className="mt-2 grid gap-2"
+                onSubmit={async (event) => {
+                  event.preventDefault();
+                  if (!typed.trim()) return;
+                  setSending("fill");
+                  setError(null);
+                  try {
+                    const res = await answer({ data: { code, playerId, answer: typed } });
+                    setInstant({ answer: typed, isCorrect: res.isCorrect });
+                    void refetch();
+                  } catch (e) {
+                    setError(e instanceof Error ? e.message : "Gönderilemedi");
+                  } finally {
+                    setSending(null);
                   }
-                  onClick={async () => {
-                    setSending(letter);
-                    setOptimistic(letter);
-                    setError(null);
-                    try {
-                      const res = await answer({ data: { code, playerId, answer: letter } });
-                      setInstant({ answer: letter, isCorrect: res.isCorrect });
-                      void refetch();
-                    } catch (e) {
-                      setOptimistic(null);
-                      setError(e instanceof Error ? e.message : "Gönderilemedi");
-                    } finally {
-                      setSending(null);
-                    }
-                  }}
-                  className={`flex items-center gap-4 rounded-full border-2 px-4 py-4 text-left text-base font-semibold transition-colors disabled:opacity-60 ${
-                    chosen ? "border-foreground bg-foreground text-background" : "border-border bg-background text-foreground"
+                }}
+              >
+                <input
+                  value={typed}
+                  onChange={(event) => setTyped(event.target.value)}
+                  maxLength={200}
+                  placeholder="Cevabını yaz..."
+                  aria-label="Cevabın"
+                  disabled={!canAnswer}
+                  className="rounded-2xl border-2 border-border bg-background px-4 py-3 text-base font-semibold text-foreground outline-none focus:border-foreground"
+                />
+                <button
+                  type="submit"
+                  disabled={!canAnswer || !!sending || !typed.trim()}
+                  className="rounded-full bg-foreground py-3 font-bold text-background disabled:opacity-60"
+                >
+                  {sending ? "GÖNDERİLİYOR..." : "GÖNDER"}
+                </button>
+              </form>
+            ) : (
+              <div className="mt-2 grid gap-2">
+                {LETTERS.filter((letter) => q.options[letter]?.trim()).map((letter) => {
+                  const chosen = meResult?.answer === letter || optimistic === letter;
+                  return (
+                    <button
+                      key={letter}
+                      disabled={!canAnswer || !!sending}
+                      onClick={async () => {
+                        setSending(letter);
+                        setOptimistic(letter);
+                        setError(null);
+                        try {
+                          const res = await answer({ data: { code, playerId, answer: letter } });
+                          setInstant({ answer: letter, isCorrect: res.isCorrect });
+                          void refetch();
+                        } catch (e) {
+                          setOptimistic(null);
+                          setError(e instanceof Error ? e.message : "Gönderilemedi");
+                        } finally {
+                          setSending(null);
+                        }
+                      }}
+                      className={`flex items-center gap-4 rounded-full border-2 px-4 py-3 text-left text-base font-semibold transition-colors disabled:opacity-60 ${
+                        chosen ? "border-foreground bg-foreground text-background" : "border-border bg-background text-foreground"
+                      }`}
+                    >
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-muted text-sm font-extrabold text-foreground">
+                        {letter}
+                      </span>
+                      {q.options[letter]}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {meResult && (
+              <div className="mt-2 text-center">
+                <p
+                  className={`rounded-2xl px-4 py-2.5 text-2xl font-extrabold text-panel ${
+                    meResult.isCorrect ? "bg-team1" : "bg-destructive"
                   }`}
                 >
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-muted text-sm font-extrabold text-foreground">
-                    {letter}
-                  </span>
-                  {q.options[letter]}
-                </button>
-              );
-            })}
-          </div>
-          )}
-
-          {meResult && (
-            <div className="mt-5 text-center">
-              <p
-                className={`mt-1 rounded-2xl px-4 py-4 text-4xl font-extrabold text-panel ${
-                  meResult.isCorrect ? "bg-team1" : "bg-destructive"
-                }`}
-              >
-                {meResult.isCorrect ? "DOĞRU! ✅" : "YANLIŞ! ❌"}
-              </p>
-              {!meResult.isCorrect && !data.resolved && (
-                <p className="mt-1 text-sm font-semibold text-muted-foreground">
-                  Doğru cevabı bulana kadar deneyebilirsin.
+                  {meResult.isCorrect ? "DOĞRU! ✅" : "YANLIŞ! ❌"}
                 </p>
-              )}
-            </div>
-          )}
-          {error && (
-            <p className="mt-4 text-center text-sm font-semibold text-destructive">{error}</p>
-          )}
-        </>
+                {!meResult.isCorrect && !data.resolved && (
+                  <p className="mt-1 text-sm font-semibold text-muted-foreground">
+                    Doğru cevabı bulana kadar deneyebilirsin.
+                  </p>
+                )}
+              </div>
+            )}
+            {error && (
+              <p className="mt-2 text-center text-sm font-semibold text-destructive">{error}</p>
+            )}
+          </div>
         </div>
       )}
     </Shell>
