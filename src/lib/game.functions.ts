@@ -2,7 +2,6 @@ import { createServerFn } from "@tanstack/react-start";
 
 const QUESTION_COUNT = 10;
 const STEP = 10;
-const WIN_LIMIT = 50;
 // Bu süre içinde iki takım da doğru bilirse "aynı anda" sayılır: halat yerinde kalır, kimse puan almaz.
 const SAME_TIME_MS = 300;
 const FIRST_POINTS = 1;
@@ -267,7 +266,6 @@ export const getRoomState = createServerFn({ method: "POST" })
       if (simultaneous) continue;
       if (firstTeam === 1) derivedRope -= STEP;
       else if (firstTeam === 2) derivedRope += STEP;
-      derivedRope = Math.max(-WIN_LIMIT, Math.min(WIN_LIMIT, derivedRope));
     }
     // Halat her zaman cevap geçmişinden türetilir; kayıtlı değer geride kaldıysa düzeltilir
     if (derivedRope !== room.rope_position && room.status !== "FINISHED") {
@@ -401,8 +399,6 @@ export const submitAnswer = createServerFn({ method: "POST" })
         if (simultaneous) continue; // aynı anda: halat sabit
         if (firstTeam === 1) rope -= STEP;
         else if (firstTeam === 2) rope += STEP;
-        // Her adımda sınırla: sınırda takılı kalıp karşı takımın çekişini yutmasın
-        rope = Math.max(-WIN_LIMIT, Math.min(WIN_LIMIT, rope));
       }
       await supabase.from("rooms").update({ rope_position: rope }).eq("id", room.id);
     }
